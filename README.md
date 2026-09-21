@@ -41,7 +41,7 @@ QueryPic empowers everyday mobile users to instantly find photos and video clips
 
 ## 📄 Documentation
 
-* [Product Requirements Document (PRD)](./querypic_prd.md)
+* [Product Requirements Document (PRD)](./querypic_product_requirements_document.md)
 * [Customer Journey Mapping](./CUSTOMER_JOURNEY.md)
 
 ---

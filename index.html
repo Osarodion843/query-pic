@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QueryPic — Local Prototype (test data only)</title>
+<style>
+  :root{
+    --primary:#6366F1; --primary-tint:#EEF2FF; --primary-dark:#A5B4FC;
+    --accent:#06B6D4; --accent-dark:#22D3EE;
+    --bg:#F8FAFC; --surface:#FFFFFF; --text:#111418; --muted:#6B7280;
+    --border:#E2E8F0; --success:#16A34A; --warning:#D97706;
+  }
+  *{box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;}
+  body{margin:0; background:var(--bg); color:var(--text);}
+  .wrap{max-width:1060px; margin:0 auto; padding:28px 16px 60px;}
+  .badge{display:inline-flex; align-items:center; gap:6px; background:#E0F7FD; color:#0E7490;
+    border:1px solid #A5F3FC; font-size:12px; font-weight:700; padding:6px 12px; border-radius:999px;}
+  h1{font-size:34px; line-height:1.1; margin:14px 0 6px;}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14px;}
+  .searchbar{background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:6px 6px 6px 14px; display:flex; gap:8px; align-items:center;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .searchbar span.icon{color:var(--muted); font-size:18px;}
+  .searchbar input{flex:1; border:0; outline:0; font-size:15px; background:transparent; color:var(--text);}
+  .searchbar button{background:var(--primary); color:#fff; border:0; border-radius:12px;
+    padding:11px 18px; font-size:14px; font-weight:700; cursor:pointer;}
+  .chips{display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;}
+  .chip{font-size:13px; font-weight:600; padding:9px 14px; border-radius:999px; cursor:pointer;
+    border:1px solid var(--border); background:var(--surface); color:var(--text);}
+  .chip.active{background:var(--primary-tint); border-color:var(--primary-dark); color:var(--primary);}
+  .banner{background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:10px 14px; font-size:13px; margin-bottom:6px; display:flex; gap:10px; align-items:center;}
+  .banner .bar{flex:1; height:6px; background:var(--border); border-radius:99px; overflow:hidden;}
+  .banner .bar i{display:block; height:100%; width:38%; background:var(--primary); border-radius:99px;}
+  .meta{font-size:13px; color:var(--muted); margin:12px 2px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-top:10px;}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+    cursor:pointer; transition:transform .08s ease;}
+  .card:hover{transform:translateY(-2px);}
+  .thumb{position:relative; aspect-ratio:4/3;}
+  .thumb.g1{background:linear-gradient(135deg,#A5B4FC,#6366F1 55%,#22D3EE);}
+  .thumb.g2{background:linear-gradient(135deg,#DDD6FE,#A5B4FC 55%,#67E8F9);}
+  .thumb.g3{background:linear-gradient(135deg,#A5F3FC,#22D3EE 55%,#6366F1);}
+  .thumb.g4{background:linear-gradient(135deg,#C7D2FE,#A5B4FC 55%,#22D3EE);}
+  .thumb .glyph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:52px; opacity:.9;}
+  .score{position:absolute; top:8px; right:8px; font-size:11px; font-weight:800; color:#fff;
+    padding:4px 9px; border-radius:999px;}
+  .s-hi{background:var(--success);} .s-mid{background:var(--warning);} .s-lo{background:#6B7280;}
+  .tag{position:absolute; left:8px; bottom:8px; font-size:11px; font-weight:700;
+    background:rgba(0,0,0,.65); color:#fff; padding:4px 9px; border-radius:999px;}
+  .card .body{padding:10px 12px;}
+  .card .title{font-size:14px; font-weight:700; margin:0 0 2px;}
+  .card .desc{font-size:12px; color:var(--muted); margin:0;}
+  .empty{background:var(--surface); border:1px dashed var(--border); border-radius:14px;
+    padding:34px; text-align:center; color:var(--muted); margin-top:10px;}
+  /* modal */
+  .overlay{position:fixed; inset:0; background:rgba(10,12,20,.55); display:none;
+    align-items:center; justify-content:center; padding:18px; z-index:50;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface); border-radius:20px; max-width:560px; width:100%;
+    overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.3);}
+  .modal .thumb{aspect-ratio:16/9;}
+  .modal .body{padding:18px;}
+  .modal h2{margin:0 0 4px; font-size:20px;}
+  .modal p{font-size:13px; color:var(--muted); margin:6px 0;}
+  .transcript{font-size:12px; background:var(--bg); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; margin:10px 0; color:#374151; font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .row{display:flex; gap:10px; margin-top:12px;}
+  .btn{flex:1; text-align:center; font-weight:700; font-size:14px; border-radius:12px;
+    padding:13px; cursor:pointer; border:0;}
+  .btn-p{background:var(--primary); color:#fff;}
+  .btn-s{background:var(--primary-tint); color:var(--primary);}
+  .btn-g{background:transparent; color:var(--muted);}
+  /* fake native player */
+  .player{display:none; background:#0B0F17; color:#fff; border-radius:12px; padding:26px 18px;
+    text-align:center; margin-top:12px;}
+  .player.open{display:block;}
+  .player .t{font-size:13px; color:var(--accent-dark); font-weight:700;}
+  .player .bar{height:6px; background:#1E293B; border-radius:99px; margin:14px 0 6px; overflow:hidden;}
+  .player .bar i{display:block; height:100%; width:0%; background:var(--accent-dark); border-radius:99px;}
+  .toast{position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:#111418; color:#fff; font-size:13px; font-weight:600; padding:12px 18px;
+    border-radius:12px; opacity:0; transition:all .25s ease; z-index:99;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  footer{margin-top:26px; font-size:12px; color:var(--muted); text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">🔒 100% on-device · 0 bytes uploaded · TEST DATA ONLY</span>
+  <h1>Find any photo<br>with words.</h1>
+  <p class="sub">Single-page local prototype — no network, no real media. Everything below is sample data.</p>
+
+  <div class="searchbar">
+    <span class="icon">🔍</span>
+    <input id="q" type="text" placeholder='Try "receipt from Home Depot" or "who said happy birthday"'>
+    <button id="go">Search</button>
+  </div>
+
+  <div class="chips">
+    <button class="chip" data-chip="receipts">🧾 Receipts</button>
+    <button class="chip" data-chip="speech">🎙️ Videos with Speech</button>
+    <button class="chip" data-chip="sunset">🌅 Recent Sunset</button>
+  </div>
+
+  <div class="banner">⚙️ <span>Indexing 1,240 of 5,000… (simulated)</span><span class="bar"><i></i></span></div>
+
+  <p class="meta" id="count"></p>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">No matches in the sample library. Try “receipt”, “birthday”, or “sunset”.</div>
+
+  <footer>QueryPic prototype · all photos, videos, scores &amp; transcripts are fictitious test data.</footer>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="thumb g4" id="mThumb"><span class="score s-hi" id="mScore">94%</span><span class="tag" id="mTag">▶ 1:12</span><div class="glyph" id="mGlyph">🎂</div></div>
+    <div class="body">
+      <h2 id="mTitle"></h2>
+      <p id="mDesc"></p>
+      <div class="transcript" id="mTranscript" style="display:none"></div>
+      <div class="player" id="player">
+        <div>▶ Playing in <b>native player</b> (simulated)</div>
+        <div class="t" id="pTime">@ 1:12</div>
+        <div class="bar"><i id="pBar"></i></div>
+        <div style="font-size:12px;color:#9CA3AF">seek packet → OS player · timestamp handoff</div>
+      </div>
+      <div class="row">
+        <button class="btn btn-p" id="mOpen">▶ Open in native player</button>
+        <button class="btn btn-s" id="mSimilar">Find Similar (Pro)</button>
+      </div>
+      <div class="row">
+        <button class="btn btn-g" id="mClose">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- TEST DATA ONLY (fictitious) ----------
+const ITEMS = [
+  {id:1, kind:"photo", title:"Home Depot receipt", desc:"OCR: HOME DEPOT · $84.17 · 08/14", glyph:"🧾", grad:"g1",
+   keys:["receipt","home","depot","ocr","paper","scan"], base:92, ocr:true},
+  {id:2, kind:"photo", title:"Grocery receipt", desc:"OCR: WHOLE FOODS · $32.50", glyph:"🧾", grad:"g2",
+   keys:["receipt","grocery","ocr","paper"], base:81, ocr:true},
+  {id:3, kind:"video", title:"Birthday_dinner.mp4", desc:"Spoken: “…sang happy birthday…”", glyph:"🎂", grad:"g4",
+   keys:["birthday","dinner","speech","party","singing","happy"], base:94, dur:"1:12",
+   transcript:"“…and then they all sang HAPPY BIRTHDAY…” @ 1:12"},
+  {id:4, kind:"video", title:"Beach vlog_day3.mp4", desc:"Spoken: “…this sunset is unreal…”", glyph:"🏖️", grad:"g3",
+   keys:["beach","sunset","speech","vlog","ocean","summer"], base:88, dur:"0:42",
+   transcript:"“…look at this SUNSET over the water…” @ 0:42"},
+  {id:5, kind:"photo", title:"Sunset over pier", desc:"Scene: sunset · ocean · pier", glyph:"🌅", grad:"g3",
+   keys:["sunset","beach","ocean","sky","summer","evening"], base:95},
+  {id:6, kind:"photo", title:"Mountain sunset hike", desc:"Scene: sunset · mountains", glyph:"⛰️", grad:"g2",
+   keys:["sunset","mountain","hike","sky","evening"], base:77},
+  {id:7, kind:"video", title:"Team standup_0412.mp4", desc:"Spoken: “…deploy on Friday…”", glyph:"💼", grad:"g1",
+   keys:["meeting","speech","standup","work","talk"], base:66, dur:"3:44",
+   transcript:"“…we DEPLOY the beta on Friday…” @ 3:44"},
+  {id:8, kind:"photo", title:"Dog on grass", desc:"Objects: dog · grass · ball", glyph:"🐶", grad:"g4",
+   keys:["dog","grass","pet","park"], base:71},
+  {id:9, kind:"photo", title:"Passport scan", desc:"OCR: PASSPORT · DOE", glyph:"🛂", grad:"g2",
+   keys:["passport","scan","ocr","document"], base:58, ocr:true},
+];
+
+const CHIP_FILTER = {
+  receipts: it => it.keys.includes("receipt"),
+  speech:   it => it.kind === "video" && it.keys.includes("speech"),
+  sunset:   it => it.keys.includes("sunset"),
+};
+
+const activeChips = new Set();
+let results = [];
+
+// Simple keyword scoring: base score nudged by query token hits.
+function score(item, tokens) {
+  if (!tokens.length) return item.base;
+  let hits = 0;
+  for (const t of tokens) {
+    if (item.keys.some(k => k.includes(t) || t.includes(k))) hits++;
+    if ((item.transcript || "").toLowerCase().includes(t)) hits += 2;
+    if ((item.title + " " + item.desc).toLowerCase().includes(t)) hits++;
+  }
+  return Math.min(99, item.base + hits * 2 - (hits === 0 ? 25 : 0));
+}
+
+function band(s){ return s >= 80 ? "s-hi" : s >= 50 ? "s-mid" : "s-lo"; }
+
+function run() {
+  const tokens = document.getElementById("q").value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  results = ITEMS
+    .filter(it => [...activeChips].every(c => CHIP_FILTER[c](it)))
+    .map(it => ({...it, score: score(it, tokens)}))
+    .filter(it => !tokens.length || it.score >= 40)
+    .sort((a,b) => b.score - a.score);
+  render(tokens);
+}
+
+function render(tokens) {
+  const grid = document.getElementById("grid");
+  const empty = document.getElementById("empty");
+  document.getElementById("count").textContent =
+    results.length + (results.length === 1 ? " match" : " matches") +
+    (tokens.length ? ' for "' + tokens.join(" ") + '"' : " in sample library");
+  grid.innerHTML = "";
+  empty.style.display = results.length ? "none" : "block";
+  for (const it of results) {
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      '<div class="thumb ' + it.grad + '"><div class="glyph">' + it.glyph + "</div>" +
+      '<span class="score ' + band(it.score) + '">' + it.score + "%</span>" +
+      (it.kind === "video" ? '<span class="tag">▶ ' + it.dur + "</span>"
+        : it.ocr ? '<span class="tag">OCR</span>' : "") +
+      '</div><div class="body"><p class="title">' + it.title + '</p><p class="desc">' + it.desc + "</p></div>";
+    el.onclick = () => openModal(it);
+    grid.appendChild(el);
+  }
+}
+
+// ---------- preview modal + simulated native-player handoff ----------
+let playerTimer = null;
+function openModal(it) {
+  document.getElementById("mTitle").textContent = it.title;
+  document.getElementById("mDesc").textContent = it.desc + " · match " + it.score + "%";
+  const s = document.getElementById("mScore");
+  s.textContent = it.score + "%"; s.className = "score " + band(it.score);
+  document.getElementById("mTag").textContent = it.kind === "video" ? "▶ " + it.dur : (it.ocr ? "OCR" : it.kind);
+  document.getElementById("mGlyph").textContent = it.glyph;
+  const tr = document.getElementById("mTranscript");
+  if (it.transcript) { tr.style.display = "block"; tr.textContent = "💬 " + it.transcript; }
+  else tr.style.display = "none";
+  document.getElementById("player").classList.remove("open");
+  document.getElementById("mOpen").style.display = it.kind === "video" ? "" : "none";
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("mOpen").onclick = () => simulateHandoff(it);
+  document.getElementById("mSimilar").onclick = () =>
+    toast("Pro feature in prototype: visual similarity is simulated 🔒");
+}
+function simulateHandoff(it) {
+  const p = document.getElementById("player");
+  p.classList.add("open");
+  document.getElementById("pTime").textContent = "@ " + (it.dur || "0:00");
+  const bar = document.getElementById("pBar");
+  let w = 0; clearInterval(playerTimer);
+  playerTimer = setInterval(() => {
+    w = Math.min(100, w + 4); bar.style.width = w + "%";
+    if (w >= 100) clearInterval(playerTimer);
+  }, 120);
+  toast("Handing off to native player at " + (it.dur || "0:00") + "… (simulated)");
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+document.getElementById("mClose").onclick = () => {
+  document.getElementById("overlay").classList.remove("open");
+  clearInterval(playerTimer);
+};
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target.id === "overlay") {
+    document.getElementById("overlay").classList.remove("open");
+    clearInterval(playerTimer);
+  }
+});
+document.querySelectorAll(".chip").forEach(ch => ch.onclick = () => {
+  const k = ch.dataset.chip;
+  activeChips.has(k) ? activeChips.delete(k) : activeChips.add(k);
+  ch.classList.toggle("active");
+  run();
+});
+document.getElementById("go").onclick = run;
+document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+
+run(); // initial render
+</script>
+</body>
+</html>

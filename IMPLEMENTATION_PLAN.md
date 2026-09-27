@@ -13,8 +13,8 @@ Target: iOS & Android, 100% on-device, CPU-only, sub-500ms search on 20k files.
   * STT (Pro only): Whisper-Tiny quantized (~75MB, downloaded on Pro unlock, not bundled in base APK/IPA to keep install small).
 * **Local store (air-gapped):** SQLite + FTS5 (OCR text + transcripts) + vector table (sqlite-vec / custom HNSW lite) + file metadata table. 8-bit vector compression, target 15-25MB per 10k files.
 * **Background work:** Android WorkManager + iOS BGProcessingTask / BGAppRefresh. Models load on-demand, unload on idle.
-* **Billing:** StoreKit 2 + Google Play Billing for Pro subscription. Entitlement stored locally + store receipt.
-* **Telemetry:** TelemetryDeck or self-hosted Sentry, behind on-device scrubber. Opt-in at first launch.
+* **Billing (dev/beta, zero-cost):** Direct Android APK / F-Droid distribution + Web Checkout via Stripe API for Pro unlock. No $99/year Apple Developer or $25 Google Play fees during prototyping / open beta. StoreKit 2 + Google Play Billing deferred to production release only. Entitlement stored locally + Stripe receipt / license key.
+* **Telemetry (100% free / open-source):** Aptabase (open-source, privacy-first) or Firebase Analytics (free unlimited) for analytics; Firebase Crashlytics (free unlimited) or GlitchTip (open-source Sentry-compatible) for crash reporting — all behind on-device scrubber. Opt-in at first launch.
 
 ---
 
@@ -128,8 +128,8 @@ Exit criteria:
 Tasks:
 1. Counter: cumulative indexed files; hard-stop at 10k for Free with friendly nudge + upgrade CTA.
 2. Triggers: 80%/100% cap banner; Pro-feature attempt → preview + subscription sheet.
-3. Purchases: monthly/yearly SKUs, restore purchases, offline entitlement grace, receipt validation.
-4. Analytics (privacy-safe): paywall views/conversions only as counts, no query content.
+3. Purchases (dev/beta, zero store fees): Stripe Web Checkout (monthly/yearly links + customer portal), license-key / receipt entitlement stored locally with offline grace; Android builds via Direct APK + F-Droid. StoreKit 2 + Play Billing SKUs, restore purchases, and store receipt validation deferred to production.
+4. Analytics (privacy-safe, free): Aptabase or Firebase Analytics — paywall views/conversions only as counts, no query content.
 
 Exit criteria:
 * Free 10,001st file blocked with upgrade path; Pro unlocks unlimited + timed/STT/similarity/fuzzy immediately, persists across restarts offline.
@@ -140,9 +140,10 @@ Exit criteria:
 
 Tasks:
 1. Scrubber unit: strip paths, queries, folder names, GPS, vectors before any egress. Unit tests with fixtures.
-2. Payload allowlist: stack trace + OS version + device model only. No IP retention (server config).
-3. First-launch copy + Settings toggle. Crash-report opt-in/out runtime switch.
-4. Pen-test: attempt to exfiltrate PII via crash path, verify redaction.
+2. Payload allowlist: stack trace + OS version + device model only. No IP retention (Aptabase/GlitchTip self-host config or Firebase data settings).
+3. Integrate free stack: Aptabase SDK (or Firebase Analytics, free unlimited) for opt-in analytics + Firebase Crashlytics (free unlimited) or self-hosted GlitchTip (Sentry-compatible API) for crashes.
+4. First-launch copy + Settings toggle. Crash-report opt-in/out runtime switch.
+5. Pen-test: attempt to exfiltrate PII via crash path, verify redaction.
 
 Exit criteria:
 * Network capture shows zero media/metadata egress; telemetry payload schema test passes.
@@ -153,8 +154,8 @@ Exit criteria:
 Tasks:
 1. Fixture library: 20k mixed photos + videos + OCR docs + speech clips; automated perf suite (index ms, query p95, STT realtime factor, RAM, index size).
 2. Device matrix: low-end (4GB RAM) → flagship; iOS + Android; SD-card case.
-3. Beta: TestFlight + Play internal → fix top crashes/ANRs.
-4. Store assets, privacy labels ("Data Not Collected"), Data Safety form.
+3. Beta (zero-cost): Android open beta via Direct APK + F-Droid; Firebase Crashlytics / GlitchTip for crash triage → fix top crashes/ANRs. TestFlight / Play Internal + StoreKit/Play Billing deferred to production (requires paid developer accounts).
+4. Store assets, privacy labels ("Data Not Collected"), Data Safety form (production only).
 5. Release checklist: airplane-mode pass, 10k→Pro pass, scrubber pass.
 
 MVP cut line (if slipping): ship Phases 0-4 + 6 + 8 first; gate Phase 5 Pro features behind single "Pro (early)" flag but STT can land as 1.1 if Whisper size/perf misses.
@@ -164,3 +165,5 @@ MVP cut line (if slipping): ship Phases 0-4 + 6 + 8 first; gate Phase 5 Pro feat
 2. Whisper-Tiny size (~75MB) + CPU cost — lazy download on Pro unlock + charging-only default.
 3. iOS background limits may cap 1k/hr throughput — need BGProcessing tuning + "plug in to finish" UX.
 4. Vector search at 20k on low-end CPU within 500ms — requires INT8 + IVF/HNSW tuning; fallback to quantized brute-force + top-K prune.
+5. Zero-cost stack trade-offs: Aptabase = smaller feature set than paid analytics (acceptable for MVP counts-only metrics); Firebase Analytics/Crashlytics = Google-hosted (verify data-residency + IP-anonymization settings, keep default-off opt-in); GlitchTip = self-hosting ops burden (use managed free tier or single-docker host for beta).
+6. Zero-cost distribution trade-offs: Direct APK/F-Droid = no auto-update via Play + manual signing trust UX; Stripe Web Checkout = no native 1-tap IAP + manual entitlement restore; plan StoreKit 2 / Play Billing migration path for production.

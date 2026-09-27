@@ -44,6 +44,11 @@
 | **Video Search** | Thumbnail & object match | Timed frame search + Speech-to-Text transcription |
 | **Advanced Tools** | Basic date filters | Visual Similarity Search + Fuzzy Temporal queries |
 
+### Distribution & Monetization (Development Phase, zero-cost)
+* **No mandatory store fees during prototyping / open beta:** bypass the $99/year Apple Developer and $25 Google Play registration fees.
+* **Android:** distribute via Direct APK download and F-Droid (both free, no registration fee).
+* **Pro checkout (dev/beta):** Web Checkout via Stripe API (no store IAP dependency) for Pro unlock; StoreKit 2 + Google Play Billing deferred to production release only.
+
 ---
 
 ## 5. Technical & Performance Benchmarks
@@ -87,5 +92,7 @@
   * **Automatic Bug Detection:** Sends anonymized crash logs without requiring manual user support tickets.
   * **On-Device Data Scrubbing:** Pre-filters remove file paths, search queries, folder names, location coordinates, and image vectors before transmission.
   * **Transmitted Data:** Purely technical stack traces, OS version, and hardware model.
-  * **Identity Decoupling:** Uses privacy-centric analytics infrastructure (e.g., TelemetryDeck or self-hosted Sentry) with zero persistent user tracking or IP retention.
+  * **Identity Decoupling:** Uses 100% free / open-source analytics infrastructure with zero persistent user tracking or IP retention:
+    * **Telemetry & Analytics:** Aptabase (open-source, privacy-first mobile analytics) or Firebase Analytics (free unlimited tracking).
+    * **Crash Reporting:** Firebase Crashlytics (free, unlimited crash reporting) or GlitchTip (open-source, lightweight Sentry-compatible error tracker).
 * **First-Launch Transparency:** An explicit setup screen informs users that all media processing is 100% local and requests permission for anonymous technical error reporting.

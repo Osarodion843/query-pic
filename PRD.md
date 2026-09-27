@@ -96,3 +96,28 @@
     * **Telemetry & Analytics:** Aptabase (open-source, privacy-first mobile analytics) or Firebase Analytics (free unlimited tracking).
     * **Crash Reporting:** Firebase Crashlytics (free, unlimited crash reporting) or GlitchTip (open-source, lightweight Sentry-compatible error tracker).
 * **First-Launch Transparency:** An explicit setup screen informs users that all media processing is 100% local and requests permission for anonymous technical error reporting.
+
+---
+
+## 8. Steering Notes (AI Builder Decision Log)
+
+### Note 1 — Tool Choice Steered (Task 1: Implementation Plan review)
+* **What I asked the builder to change:** Replace every paid or tiered third-party service with 100% free, open-source, or zero-cost alternatives during development and open beta.
+* **What was decided and why:**
+  * **Telemetry & Analytics:** TelemetryDeck → **Aptabase** (open-source, privacy-first mobile analytics) or **Firebase Analytics** (free unlimited tracking). Why: zero cost, no event-volume billing during prototyping, and both fit the zero-persistent-tracking rule in §7.
+  * **Crash Reporting:** Sentry Cloud → **Firebase Crashlytics** (free, unlimited) or **GlitchTip** (open-source, Sentry-compatible). Why: unlimited free crash volume for beta triage without a Sentry subscription; GlitchTip keeps a fully self-hosted option.
+  * **Distribution & Monetization (dev phase):** StoreKit 2 + Google Play Billing → **Direct Android APK / F-Droid + Stripe Web Checkout**. Why: bypasses the mandatory $99/year Apple Developer and $25 Google Play registration fees during local prototyping and open beta. Store IAP returns at production release only.
+  * **What stayed the same:** App + DB run 100% locally for now (Flutter + SQLite/FTS5 + on-device TFLite/CoreML models); no cloud backend was introduced.
+* **Where to verify:** §4 (zero-cost distribution), §7 (free telemetry/crash stack), and the phased plan (billing deferred to production, Aptabase/Crashlytics/GlitchTip integration tasks).
+
+### Note 2 — Design Refinement Steered (Task 2: Design preview review)
+* **What I asked the builder to change:** Apply an **Electric Violet & Cyber Cyan** color scheme across the design system and preview, replacing the previous indigo/teal tokens.
+* **Exact changes made and why (modern, high-contrast, privacy-tech feel):**
+  * `primary` #4F46E5 → **#6366F1** (light) / #818CF8 → **#A5B4FC** (dark) — Search CTA, active states.
+  * `accent` #0E9F8A → **#06B6D4** (light) / #2DD4BF → **#22D3EE** (dark) — privacy badge, Pro highlights.
+  * `bg` #F7F7F8 → **#F8FAFC** (light) / #0F1115 → **#0B0F17** (dark) — screen backgrounds.
+  * `surface` #FFFFFF (unchanged light) / #171A21 → **#131924** (dark) — cards, sheets, modals.
+  * `border` #E5E7EB → **#E2E8F0** (light) / #262B36 → **#1E293B** (dark) — dividers, chip outlines.
+  * Active filter-chip tint kept at **#EEF2FF**; privacy badge uses the new cyan (#06B6D4 / #22D3EE); dark surfaces (#131924) verified against the dark background (#0B0F17).
+  * `text`, `muted`, `success`, `warning`, `danger` tokens intentionally unchanged.
+* **Where to verify:** `DESIGN_SYSTEM.md` v0.2 token table and `design.html` in this repository (`:root` CSS variables, chip, badge, and swatch rows).

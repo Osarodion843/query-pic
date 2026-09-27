@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QueryPic — Design System Preview</title>
+<style>
+  :root{
+    /* Electric Violet & Cyber Cyan — light mode */
+    --primary:#6366F1; --primary-tint:#EEF2FF; --primary-dark:#A5B4FC;
+    --accent:#06B6D4; --accent-dark:#22D3EE;
+    --bg:#F8FAFC; --surface:#FFFFFF; --text:#111418; --muted:#6B7280;
+    --border:#E2E8F0; --success:#16A34A; --warning:#D97706; --radius:16px;
+  }
+  /* Dark mode: bg #0B0F17, surface #131924, border #1E293B, primary #A5B4FC, accent #22D3EE */
+  *{box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;}
+  body{margin:0; background:var(--bg); color:var(--text); padding:32px 16px;}
+  h1{font-size:26px; margin:0 0 4px;} .sub{color:var(--muted); margin:0 0 20px; font-size:14px;}
+  .tokens{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 24px; max-width:1200px;}
+  .swatch{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:8px 10px; font-size:12px; display:flex; align-items:center; gap:8px;}
+  .dot{width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.15);}
+  .phones{display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
+  .phone{width:320px; background:#0B0C0F; border-radius:44px; padding:12px; box-shadow:0 20px 50px rgba(0,0,0,.25);}
+  .screen{background:var(--surface); border-radius:34px; overflow:hidden; min-height:640px; display:flex; flex-direction:column;}
+  .notch{height:26px; display:flex; justify-content:center; align-items:center;}
+  .notch span{width:110px; height:22px; background:#0B0C0F; border-radius:12px; display:block;}
+  .content{padding:14px 14px 18px; background:#F8FAFC; flex:1;}
+  .label{font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:2px 2px 10px;}
+  .badge{display:inline-flex; align-items:center; gap:6px; background:#E0F7FD; color:#0E7490; font-size:11px; font-weight:700; padding:6px 10px; border-radius:999px; margin-bottom:10px; border:1px solid #A5F3FC;}
+  .headline{font-size:22px; font-weight:800; line-height:1.15; margin:2px 2px 12px;}
+  .searchbar{background:#fff; border:1px solid var(--border); border-radius:16px; padding:13px 12px; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); box-shadow:0 1px 2px rgba(0,0,0,.05);}
+  .searchbar b{color:var(--text); font-weight:600;}
+  .chips{display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;}
+  .chip{font-size:12px; font-weight:600; padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; color:var(--text);}
+  .chip.active{background:#EEF2FF; border-color:#A5B4FC; color:#6366F1;}
+  .banner{background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-size:12px; margin-bottom:12px;}
+  .bar{height:6px; background:#E2E8F0; border-radius:99px; margin-top:8px; overflow:hidden;}
+  .bar i{display:block; height:100%; width:38%; background:var(--primary); border-radius:99px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .card{position:relative; border-radius:12px; overflow:hidden; aspect-ratio:1; background:linear-gradient(135deg,#A5B4FC,#6366F1 45%,#22D3EE); border:1px solid rgba(0,0,0,.06);}
+  .card.v2{background:linear-gradient(135deg,#DDD6FE,#A5B4FC 45%,#67E8F9);}
+  .card.v3{background:linear-gradient(135deg,#A5F3FC,#22D3EE 45%,#6366F1);}
+  .card.v4{background:linear-gradient(135deg,#C7D2FE,#A5B4FC 45%,#22D3EE);}
+  .score{position:absolute; top:6px; right:6px; font-size:10px; font-weight:800; padding:3px 7px; border-radius:999px; color:#fff;}
+  .s-hi{background:var(--success);} .s-mid{background:var(--warning);} .s-lo{background:#6B7280;}
+  .tag{position:absolute; left:6px; bottom:6px; font-size:10px; font-weight:700; background:rgba(0,0,0,.65); color:#fff; padding:3px 7px; border-radius:999px;}
+  .meta{font-size:11px; color:var(--muted); margin:10px 2px 0; line-height:1.5;}
+  .btn{display:block; text-align:center; font-weight:700; font-size:14px; border-radius:12px; padding:13px; margin-top:12px; text-decoration:none;}
+  .btn-p{background:var(--primary); color:#fff;} .btn-s{background:var(--primary-tint); color:var(--primary);}
+  .sheet{background:#fff; border-radius:20px 20px 0 0; margin:14px -14px -18px; padding:16px 14px 18px; border-top:1px solid var(--border);}
+  .sheet h3{margin:0 0 4px; font-size:16px;} .sheet p{margin:0 0 10px; font-size:12px; color:var(--muted);}
+  table{width:100%; font-size:11px; border-collapse:collapse; margin:8px 0 4px;}
+  td,th{border:1px solid var(--border); padding:6px; text-align:left;} th{background:#F8FAFC;}
+  .transcript{font-size:11px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px; padding:8px; margin-top:8px; color:#374151;}
+  .caption{font-size:11px; color:var(--muted); text-align:center; margin-top:14px; max-width:300px;}
+  .row{display:flex; gap:24px; flex-wrap:wrap; justify-content:center;}
+  .fig{display:flex; flex-direction:column; align-items:center;}
+</style>
+</head>
+<body>
+<h1>QueryPic — Design System Preview</h1>
+<p class="sub">Tokens + components + 3 phone screens (Home · Workspace · Preview/Paywall). Open <b>DESIGN_SYSTEM.md</b> for specs.</p>
+
+<div class="tokens">
+  <div class="swatch"><span class="dot" style="background:#6366F1"></span> primary #6366F1 / dark #A5B4FC</div>
+  <div class="swatch"><span class="dot" style="background:#06B6D4"></span> accent #06B6D4 / dark #22D3EE</div>
+  <div class="swatch"><span class="dot" style="background:#F8FAFC"></span> bg #F8FAFC / dark #0B0F17</div>
+  <div class="swatch"><span class="dot" style="background:#FFFFFF"></span> surface #FFFFFF / dark #131924</div>
+  <div class="swatch"><span class="dot" style="background:#111418"></span> text #111418</div>
+  <div class="swatch"><span class="dot" style="background:#6B7280"></span> muted #6B7280</div>
+  <div class="swatch"><span class="dot" style="background:#16A34A"></span> match ≥80</div>
+  <div class="swatch"><span class="dot" style="background:#D97706"></span> match 50–79</div>
+</div>
+
+<div class="phones">
+  <!-- HOME -->
+  <div class="row">
+  <div class="fig">
+  <div class="phone"><div class="screen">
+    <div class="notch"><span></span></div>
+    <div class="content">
+      <div class="label">1 · Home / Quick Search</div>
+      <div class="badge">🔒 100% on-device · 0 bytes uploaded</div>
+      <div class="headline">Find any photo<br>with words.</div>
+      <div class="searchbar">🔍 <span><b>beach sunset</b> from last summer…</span> <span style="margin-left:auto">🎙️</span></div>
+      <div class="chips"><span class="chip active">Receipts</span><span class="chip">Videos with Speech</span><span class="chip">Recent Sunset</span></div>
+      <div class="banner">⚙️ Indexing 1,240 of 5,000…<div class="bar"><i></i></div></div>
+      <div class="grid">
+        <div class="card"><span class="score s-hi">92%</span><span class="tag">OCR</span></div>
+        <div class="card v2"><span class="score s-hi">88%</span></div>
+        <div class="card v3"><span class="score s-mid">64%</span></div>
+        <div class="card v4"><span class="score s-hi">95%</span><span class="tag">▶ 0:42</span></div>
+        <div class="card v3"><span class="score s-lo">41%</span></div>
+        <div class="card v2"><span class="score s-mid">71%</span><span class="tag">▶ 2:10</span></div>
+      </div>
+      <div class="meta">Starter prompts appear as soon as items are indexed — search works before indexing finishes.</div>
+    </div>
+  </div></div>
+  <div class="caption">Home: search bar + chips + privacy badge + indexing banner + starter grid.</div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="fig">
+  <div class="phone"><div class="screen">
+    <div class="notch"><span></span></div>
+    <div class="content">
+      <div class="label">2 · Expanded Workspace</div>
+      <div class="searchbar">🔍 <span><b>"who said happy birthday"</b> · 14 results</span></div>
+      <div class="chips"><span class="chip">Photos</span><span class="chip active">Videos with Speech</span><span class="chip">OCR</span></div>
+      <div class="grid">
+        <div class="card v4"><span class="score s-hi">94%</span><span class="tag">▶ 1:12</span></div>
+        <div class="card"><span class="score s-hi">89%</span><span class="tag">▶ 0:08</span></div>
+        <div class="card v2"><span class="score s-mid">66%</span><span class="tag">▶ 3:44</span></div>
+      </div>
+      <div class="transcript">💬 “…and then they all sang <b>happy birthday</b>…” — Birthday_dinner.mp4 @ 1:12 <span style="color:#06B6D4;font-weight:700">· Pro timed transcript</span></div>
+      <div class="grid" style="margin-top:8px">
+        <div class="card v3"><span class="score s-mid">58%</span></div>
+        <div class="card v2"><span class="score s-lo">38%</span></div>
+        <div class="card"><span class="score s-hi">81%</span><span class="tag">OCR</span></div>
+      </div>
+      <a class="btn btn-s" href="#">Filter: date · type · score</a>
+    </div>
+  </div></div>
+  <div class="caption">Workspace: query + count, video cards with timestamps + transcript snippet.</div>
+  </div>
+
+  <!-- PREVIEW + PAYWALL -->
+  <div class="fig">
+  <div class="phone"><div class="screen">
+    <div class="notch"><span></span></div>
+    <div class="content">
+      <div class="label">3 · Preview + Pro Paywall</div>
+      <div class="card v4" style="aspect-ratio:16/10"><span class="score s-hi">94% match</span><span class="tag">▶ Birthday_dinner.mp4 @ 1:12</span></div>
+      <div class="transcript">Tap opens the <b>native player</b> at 1:12. Transcript is stored on-device only.</div>
+      <a class="btn btn-p" href="#">▶ Open in native player</a>
+      <a class="btn btn-s" href="#">Find Similar (Pro)</a>
+      <div class="sheet">
+        <h3>QueryPic Pro</h3>
+        <p>Beta checkout via Stripe (stores come at production).</p>
+        <table><tr><th></th><th>Free</th><th>Pro</th></tr>
+        <tr><td>Files indexed</td><td>10,000</td><td>Unlimited</td></tr>
+        <tr><td>Timed speech search</td><td>—</td><td>✓</td></tr>
+        <tr><td>Similarity + fuzzy dates</td><td>—</td><td>✓</td></tr></table>
+        <a class="btn btn-p" href="#">Continue with Stripe</a>
+      </div>
+    </div>
+  </div></div>
+  <div class="caption">Preview modal + paywall sheet (Free 10k cap, Stripe beta checkout).</div>
+  </div>
+  </div>
+</div>
+</body>
+</html>

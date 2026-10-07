@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QueryPic — 100% on-device photo & video search (beta)</title>
+<meta name="description" content="Privacy-first, 100% on-device natural-language search for your photos and video clips. Beta for Android.">
+<style>
+:root{
+  --primary:#6366F1; --accent:#06B6D4; --bg:#0B0F17; --surface:#131924;
+  --text:#F3F4F6; --muted:#9CA3AF; --border:#1E293B; --radius:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6}
+.wrap{max-width:720px;margin:0 auto;padding:32px 16px 64px}
+.badge{display:inline-block;background:rgba(34,211,238,.15);color:#22D3EE;
+  border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-size:13px}
+h1{font-size:32px;line-height:1.25;margin:20px 0 8px}
+p.lead{color:var(--muted);font-size:17px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;margin:20px 0}
+.btn{display:block;text-align:center;background:var(--primary);color:#fff;font-weight:700;
+  border-radius:var(--radius);padding:14px 20px;text-decoration:none;font-size:17px;margin:8px 0}
+.btn.secondary{background:transparent;border:1px solid var(--primary);color:#A5B4FC}
+.meta{font-size:13px;color:var(--muted);font-family:ui-monospace,monospace;word-break:break-all}
+ul{padding-left:20px;color:var(--muted)}
+li{margin:6px 0}
+h2{font-size:20px;margin:28px 0 8px}
+a{color:#A5B4FC}
+footer{margin-top:40px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">🔒 100% on-device · 0 bytes uploaded</span>
+  <h1>Find any photo or video clip with words.</h1>
+  <p class="lead">QueryPic searches your media with natural language, on-device text
+  recognition, and video speech transcription. Nothing ever leaves your phone.</p>
+
+  <div class="card">
+    <h2 style="margin-top:0">Beta for Android</h2>
+    <p class="lead" style="font-size:15px">Free tier · Pro unlocks timed video search,
+    transcripts &amp; smart dates (NGN 3,000/mo or NGN 30,000/yr via Paystack).</p>
+    <a class="btn" href="RELEASE_APK_URL">⬇ Download QueryPic beta (APK, 112 MB)</a>
+    <a class="btn secondary" href="https://paystack.shop/pay/aksnoe4wef">Subscribe Pro Monthly</a>
+    <a class="btn secondary" href="https://paystack.shop/pay/25387upccs">Subscribe Pro Yearly</a>
+    <p class="meta">Version 0.1.0+1 · signed release · SHA-256
+    dfea3cc9910dd976616e49bfafde789f5cca25061668f04c9dbc85f6bb202e5d<br>
+    After paying you receive a license key by email — enter it in
+    Settings to unlock Pro.</p>
+  </div>
+
+  <h2>Installing the APK</h2>
+  <ul>
+    <li>Tap Download, then open the file and allow <em>Install unknown apps</em> for your browser.</li>
+    <li>Verify the SHA-256 in your file manager or with an APK verifier before installing.</li>
+    <li>Grant only the folders you want searched. Everything is indexed on-device.</li>
+  </ul>
+
+  <h2>Privacy</h2>
+  <ul>
+    <li>Media, index, queries: stay on your device, deleted with uninstall.</li>
+    <li>Diagnostics are <strong>off by default</strong>; opt-in sends counts/crash reports only.</li>
+    <li>Full text: <a href="privacy.html">Privacy Policy</a>.</li>
+  </ul>
+
+  <footer>
+    Support: <a href="mailto:querypicsupport@gmail.com">querypicsupport@gmail.com</a><br>
+    © 2026 QueryPic · Beta. Android is a trademark of Google LLC.
+  </footer>
+</div>
+</body>
+</html>

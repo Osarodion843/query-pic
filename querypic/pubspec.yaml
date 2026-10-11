@@ -1,0 +1,50 @@
+name: querypic
+description: QueryPic — privacy-first, 100% on-device media search (MVP v1.0).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0
+  shared_preferences: ^2.2.3
+  path_provider: ^2.1.4
+  tflite_flutter: ^0.12.1
+  aptabase_flutter: ^0.5.0
+  photo_manager: ^3.12.0
+  # Phase 4 native handoff: opens content:// in the system player
+  # (ExoPlayer-backed intent on Android, Quick Look / AVPlayer on iOS).
+  url_launcher: ^6.2.0
+  # Phase 5 STT: runtime media-read permission for the debug test-video
+  # path (adb-pushed file under /sdcard/Download).
+  permission_handler: ^12.0.0
+  sentry: 8.14.2
+  image: 4.2.0
+  google_mlkit_image_labeling: ^0.14.2
+  # OCR text-in-image search (PRD §3): on-device Latin text recognition.
+  # Words read inside photos/screenshots land in the FTS index, so queries
+  # like "following" match images containing that text — not filenames.
+  google_mlkit_text_recognition: ^0.15.0
+  crypto: ^3.0.7
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # Whisper debug assets: only the VERIFIED transcribe-translate
+  # model + vocab ride in the APK. The two disproven variants stay on
+  # disk (comparison history) but out of the bundle (~83 MB saved).
+  # CLIP joint (378MB) stays out of the APK — debug loads it via
+  # adb-push path (Step 5 plan).
+  assets:
+    - sandbox/models/whisper-tiny-transcribe-translate.tflite
+    - sandbox/models/whisper_vocab.json
+    # Step 5 CLIP tokenizer pair (1.3MB): vocab + merges ride in the APK.
+    # The 378MB joint tower stays out — adb-push debug path (ClipJoint).
+    - sandbox/models/vocab.json
+    - sandbox/models/merges.txt

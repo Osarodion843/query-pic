@@ -1,0 +1,15 @@
+{
+  "name": "querypic-license",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QueryPic Pro license fulfillment: Paystack webhook -> single-use keys -> email -> redeem API.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node lib/dev.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.34.0",
+    "resend": "^4.0.0"
+  }
+}

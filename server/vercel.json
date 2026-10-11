@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/paystack-webhook.js": { "maxDuration": 30 },
+    "api/redeem.js": { "maxDuration": 10 }
+  }
+}

@@ -1,0 +1,48 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android signing keys — NEVER commit (release keystore unlocks store identity)
+android/key.properties
+android/*.jks
+android/*.keystore
+android/local.properties
+ios/Flutter/Generated.xcconfig
+
+# Large model binaries live here but must never be committed.
+sandbox/models/*.tflite
+sandbox/models/*.bin
+sandbox/models/*.onnx
+sandbox/models/*.onnx.data
+sandbox/models/*.pt
+sandbox/models/*.pth
+# Local device index (test data, regenerates on launch).
+sandbox/db/

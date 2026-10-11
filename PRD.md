@@ -9,8 +9,9 @@
 
 ## 1. Target User & Pain Point
 
-* **Primary Persona:** Everyday smartphone users managing large, unorganized personal photo and video libraries stored on local device storage or SD cards.
-* **Core Pain Point:** Traditional mobile gallery apps rely solely on chronological dates or manual tagging. Users struggle to locate specific memories, document scans, or spoken dialogue buried inside lengthy video recordings without manual scrolling.
+* **Primary Persona:** Everyday smartphone users with tens of thousands of private photos and videos trapped on-device (phone storage, SD cards) — memories, receipts, screenshots, memes, long video recordings.
+* **Core Pain Point:** Three bad options. (1) **Cloud search** (Google Photos-style) demands uploading your entire private life — a privacy risk users increasingly refuse. (2) **Standard local gallery search** is slow, fragmented (one album at a time), and blind to what matters: it cannot read text inside images (no OCR), cannot hear spoken words in videos, and understands only dates and filenames. (3) **Manual scrolling** through 10,000+ files to find one screenshot is measured in minutes, not seconds.
+* **The gap:** no mobile search is simultaneously private (zero uploads), fast (sub-second across 20k files), and multi-modal (objects + scenes + embedded text + spoken audio + visual similarity). QueryPic is built to be exactly that.
 
 ---
 
@@ -25,7 +26,9 @@
 ## 3. Core Features & Functional Requirements
 
 ### Search Intelligence Engine
-* **Multi-Modal Recognition:** Detects objects, actions, scene contexts, visual compositions, and embedded text (OCR).
+* **Multi-Modal Recognition:** Detects objects, actions, scene contexts, visual compositions, and embedded text (OCR) — all with on-device models, zero uploads.
+* **How retrieval works (sub-500ms on 20k files):** a SQLite-backed inverted token index (stemmed keywords, prefix + substring fallback, synonym expansion) fused 60/40 with INT8 vector similarity, plus per-video frame and transcript signals. Deliberately **not** FTS5: several OEM SQLite builds ship without the FTS5 module (crashed on test hardware), so the token table delivers FTS-grade recall with zero native dependencies.
+* **On-device OCR:** ML Kit text recognition reads words inside photos, screenshots, posters and video thumbnails into the same index — queries match text *in* the image, never filenames.
 * **Audio & Speech-to-Text (Video):** Transcribes audio tracks within locally stored videos using a lightweight on-device Speech-to-Text engine, enabling keyword search across spoken dialogue.
 * **Fuzzy Temporal Queries:** Interprets relative natural language date expressions combined with semantic context (e.g., *"beach sunset from last summer"*).
 * **Visual Similarity Search:** Performs vector matching against a reference image to locate visually similar media across the library.
@@ -47,7 +50,16 @@
 ### Distribution & Monetization (Development Phase, zero-cost)
 * **No mandatory store fees during prototyping / open beta:** bypass the $99/year Apple Developer and $25 Google Play registration fees.
 * **Android:** distribute via Direct APK download and F-Droid (both free, no registration fee).
-* **Pro checkout (dev/beta):** Web Checkout via Stripe API (no store IAP dependency) for Pro unlock; StoreKit 2 + Google Play Billing deferred to production release only.
+* **Pro checkout (dev/beta):** Web Checkout via Paystack Payment Pages (no store IAP dependency); StoreKit 2 + Google Play Billing deferred to production release only.
+
+### Pro Fulfillment: single-use license keys (serverless)* **Webhook:** a zero-cost serverless endpoint (`server/api/paystack-webhook.js`, Vercel hobby tier) listens to Paystack's `charge.success` (HMAC-verified, idempotent on event id). Per successful payment it mints a cryptographically secure `QP-PRO-XXXX-XXXX` key (ambiguous glyphs excluded), stores it `active` in Upstash Redis (free tier), and emails it via Resend (free tier).
+* **Redemption (one network call, then offline forever):** Settings → Enter license key POSTs `{key, deviceId}` to `server/api/redeem.js`, which marks the key `used` (same-device re-activation allowed for backup restores; other devices rejected). The app then stores Pro locally per account — search, STT, and playback keep full airplane-mode parity.
+* **Why single-use:** keys emailed as plaintext must not unlock unlimited devices. Reinstalls get a new install id (support resets the key — documented runbook in `server/README.md`). No user accounts server-side; the only stored PII is the purchaser email used to deliver the key.
+
+### Upgrade triggers (free → Pro, never blocking)
+* **Capacity:** friendly banner at 80% and 100% of the 10,000-file Free cap with a one-tap upgrade path; search keeps working over everything indexed.
+* **Capability:** attempting a Pro feature (timed video seek, transcripts, visual similarity, smart dates) shows an inline preview of what it would do, then the paywall — discovery before payment.
+* **Per account:** each on-device profile unlocks Pro with its own key (Paystack checkout → emailed key → Settings entry), so one phone serves Free and Pro users side by side.
 
 ---
 
@@ -107,7 +119,7 @@
   * **Telemetry & Analytics:** TelemetryDeck → **Aptabase** (open-source, privacy-first mobile analytics) or **Firebase Analytics** (free unlimited tracking). Why: zero cost, no event-volume billing during prototyping, and both fit the zero-persistent-tracking rule in §7.
   * **Crash Reporting:** Sentry Cloud → **Firebase Crashlytics** (free, unlimited) or **GlitchTip** (open-source, Sentry-compatible). Why: unlimited free crash volume for beta triage without a Sentry subscription; GlitchTip keeps a fully self-hosted option.
   * **Distribution & Monetization (dev phase):** StoreKit 2 + Google Play Billing → **Direct Android APK / F-Droid + Stripe Web Checkout**. Why: bypasses the mandatory $99/year Apple Developer and $25 Google Play registration fees during local prototyping and open beta. Store IAP returns at production release only.
-  * **What stayed the same:** App + DB run 100% locally for now (Flutter + SQLite/FTS5 + on-device TFLite/CoreML models); no cloud backend was introduced.
+  * **What stayed the same:** App + DB run 100% locally for now (Flutter + SQLite token index + on-device TFLite/CoreML models); no cloud backend was introduced.
 * **Where to verify:** §4 (zero-cost distribution), §7 (free telemetry/crash stack), and the phased plan (billing deferred to production, Aptabase/Crashlytics/GlitchTip integration tasks).
 
 ### Note 2 — Design Refinement Steered (Task 2: Design preview review)

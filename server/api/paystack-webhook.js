@@ -17,6 +17,36 @@ export const config = { api: { bodyParser: false } };
 const redis = Redis.fromEnv();
 const resend = () => new Resend(process.env.RESEND_API_KEY);
 
+async function sendKeyEmail({ email, key, plan, amountDisplay }) {
+  // Returns true when Resend accepted it. Never throws (callers treat
+  // email as best-effort: the key is always stored first).
+  if (!email || !process.env.RESEND_API_KEY || !process.env.MAIL_FROM) {
+    return false;
+  }
+  try {
+    const app = process.env.APP_NAME || "QueryPic";
+    const { error } = await resend().emails.send({
+      from: process.env.MAIL_FROM,
+      to: email,
+      subject: `${app} Pro — your license key`,
+      html:
+        `<p>Thanks for going Pro! Your license key (one device, keep it private):</p>` +
+        `<p style="font-size:22px;font-weight:bold;letter-spacing:2px">${key}</p>` +
+        `<p>Enter it in ${app} under <b>Settings → Enter license key</b>. ` +
+        `The app then works fully offline.</p>` +
+        `<p>Plan: ${plan} · Amount: ${amountDisplay}</p>`,
+    });
+    if (error) {
+      console.error("resend failed:", JSON.stringify(error));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("resend threw:", e?.message ?? e);
+    return false;
+  }
+}
+
 async function readRaw(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -70,9 +100,9 @@ export default async function handler(req, res) {
   })} ${currency}`;
 
   // Double-tap guard: same email + same amount within 30 min reuses the
-  // still-unredeemed key instead of minting (impatient taps on a slow
-  // checkout each create a real charge + event). A redeemed key never
-  // blocks a genuine repurchase.
+  // still-unredeemed key instead of minting — AND still emails it, so
+  // every successful payment yields exactly one email (previously the
+  // reuse path went silent, which read as "sometimes no email").
   if (email) {
     try {
       const prior = await redis.lrange(emailOf(email), 0, -1);
@@ -84,7 +114,13 @@ export default async function handler(req, res) {
         const ageMs = Date.now() - Date.parse(rec.createdAt ?? 0);
         if (Number.isFinite(ageMs) && ageMs < 30 * 60 * 1000) {
           await redis.set(eventKey, "1", { ex: 60 * 60 * 24 * 30 });
-          return res.status(200).json({ ok: true, reused: oldKey });
+          const emailed = await sendKeyEmail({
+            email,
+            key: oldKey,
+            plan: rec.plan ?? plan,
+            amountDisplay: rec.amountDisplay ?? amountDisplay,
+          });
+          return res.status(200).json({ ok: true, reused: oldKey, emailed });
         }
       }
     } catch (e) {
@@ -120,26 +156,6 @@ export default async function handler(req, res) {
   await redis.set(eventKey, "1", { ex: 60 * 60 * 24 * 30 });
 
   // Email last and non-fatal: the key is already safely stored.
-  let emailed = false;
-  if (email && process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
-    try {
-      const app = process.env.APP_NAME || "QueryPic";
-      const { error } = await resend().emails.send({
-        from: process.env.MAIL_FROM,
-        to: email,
-        subject: `${app} Pro — your license key`,
-        html:
-          `<p>Thanks for going Pro! Your license key (one device, keep it private):</p>` +
-          `<p style="font-size:22px;font-weight:bold;letter-spacing:2px">${key}</p>` +
-          `<p>Enter it in ${app} under <b>Settings → Enter license key</b>. ` +
-          `The app then works fully offline.</p>` +
-          `<p>Plan: ${plan} · Amount: ${amountDisplay}</p>`,
-      });
-      emailed = !error;
-      if (error) console.error("resend failed:", JSON.stringify(error));
-    } catch (e) {
-      console.error("resend threw:", e?.message ?? e);
-    }
-  }
+  const emailed = await sendKeyEmail({ email, key, plan, amountDisplay });
   return res.status(200).json({ ok: true, emailed });
 }

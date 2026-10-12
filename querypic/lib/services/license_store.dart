@@ -33,18 +33,22 @@ class LicenseStore {
   /// on the same phone. Afterwards Pro lives in local storage and works
   /// fully offline. Empty [baseUrl] (default from BackendKeys) = dev-only
   /// offline accept.
-  static Future<({bool ok, String message})> redeem(
+  static Future<({bool ok, String message, int? validUntilMs})> redeem(
     String key, {
     String? baseUrl,
   }) async {
     final clean = key.trim().toUpperCase();
     if (!validateFormat(clean)) {
-      return (ok: false, message: 'Expected format QP-PRO-XXXX-XXXX.');
+      return (ok: false, message: 'Expected format QP-PRO-XXXX-XXXX.', validUntilMs: null);
     }
     final base = (baseUrl ?? BackendKeys.licenseApiBase).trim();
     if (base.isEmpty) {
       // Dev-only bypass: no backend configured (debug builds).
-      return (ok: true, message: 'Accepted (offline dev mode).');
+      return (
+        ok: true,
+        message: 'Accepted (offline dev mode).',
+        validUntilMs: null
+      );
     }
     final deviceId = await DeviceStore.deviceId();
     String account = '';
@@ -76,20 +80,33 @@ class LicenseStore {
       return (
         ok: false,
         message: 'Verification timed out — check connection and retry.',
+        validUntilMs: null,
       );
     } catch (_) {
       return (
         ok: false,
         message: 'Could not reach the verification server — '
             'check connection and retry.',
+        validUntilMs: null,
       );
     }
     final status = response.statusCode;
-    if (status == 200) return (ok: true, message: 'Pro unlocked.');
+    int? validUntil;
+    try {
+      final decoded = json.decode(body);
+      if (decoded is Map) {
+        final v = decoded['validUntil'];
+        if (v is num) validUntil = v.toInt();
+      }
+    } catch (_) {}
+    if (status == 200) {
+      return (ok: true, message: 'Pro unlocked.', validUntilMs: validUntil);
+    }
     if (status == 404) {
       return (
         ok: false,
         message: 'Unknown key — check it letter by letter and retry.',
+        validUntilMs: null,
       );
     }
     if (status == 410 || body.contains('"used"')) {
@@ -97,11 +114,13 @@ class LicenseStore {
         ok: false,
         message: 'This key is already used on another device. '
             'Contact support to re-issue after a reinstall.',
+        validUntilMs: null,
       );
     }
     return (
       ok: false,
       message: 'Verification failed (code $status) — try again later.',
+      validUntilMs: null,
     );
   }
 

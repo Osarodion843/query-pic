@@ -108,10 +108,13 @@ class AccountStore {
   /// Create a profile. The FIRST profile on a device is admin (sets the
   /// PIN); later ones are normal unless an admin explicitly grants it
   /// (pass isAdmin:true only from an admin-authorized flow).
+  /// [allowFirstAdmin]=false forces normal even for the first profile
+  /// (public user builds, where admins must never exist).
   static Future<AccountProfile> create({
     required String name,
     bool isAdmin = false,
     String? pin,
+    bool allowFirstAdmin = true,
   }) async {
     final clean = name.trim().isEmpty ? 'User' : name.trim();
     final all = await profiles();
@@ -119,7 +122,7 @@ class AccountStore {
     final profile = AccountProfile(
       id: 'u${DateTime.now().microsecondsSinceEpoch}',
       name: clean,
-      isAdmin: first || isAdmin,
+      isAdmin: (first && allowFirstAdmin) || isAdmin,
       createdMs: DateTime.now().millisecondsSinceEpoch,
     );
     all.add(profile);

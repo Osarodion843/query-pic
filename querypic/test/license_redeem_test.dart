@@ -25,7 +25,9 @@ void main() {
       request.response.headers.contentType = ContentType.json;
       if (key == 'QP-PRO-GOOD-KEY1') {
         request.response.statusCode = 200;
-        request.response.write('{"ok":true}');
+        request.response.write(
+          '{"ok":true,"plan":"monthly","validUntil":1893456000000}',
+        );
       } else if (key == 'QP-PRO-USED-KEY1') {
         request.response.statusCode = 410;
         request.response.write('{"ok":false,"error":"used"}');
@@ -62,6 +64,15 @@ void main() {
         baseUrl: base,
       );
       expect(out.ok, isTrue);
+    });
+
+    test('200 carries the server expiry through', () async {
+      final out = await LicenseStore.redeem(
+        'QP-PRO-GOOD-KEY1',
+        baseUrl: base,
+      );
+      expect(out.ok, isTrue);
+      expect(out.validUntilMs, 1893456000000);
     });
 
     test('redeem binds device AND account (single-use scope)', () async {

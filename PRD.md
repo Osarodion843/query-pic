@@ -55,6 +55,12 @@
 ### Pro Fulfillment: single-use license keys (serverless)* **Webhook:** a zero-cost serverless endpoint (`server/api/paystack-webhook.js`, Vercel hobby tier) listens to Paystack's `charge.success` (HMAC-verified, idempotent on event id). Per successful payment it mints a cryptographically secure `QP-PRO-XXXX-XXXX` key (ambiguous glyphs excluded), stores it `active` in Upstash Redis (free tier), and emails it via Resend (free tier).
 * **Redemption (one network call, then offline forever):** Settings → Enter license key POSTs `{key, deviceId}` to `server/api/redeem.js`, which marks the key `used` (same-device re-activation allowed for backup restores; other devices rejected). The app then stores Pro locally per account — search, STT, and playback keep full airplane-mode parity.
 * **Why single-use:** keys emailed as plaintext must not unlock unlimited devices. Reinstalls get a new install id (support resets the key — documented runbook in `server/README.md`). No user accounts server-side; the only stored PII is the purchaser email used to deliver the key.
+* **Expiry:** monthly keys last 30 days, yearly 365, from server activation (`validUntil` burn timestamp, returned on redeem). The app enforces expiry off-device by clock, so Pro works fully offline; expiry date surfaces in Manage subscription. Device-clock manipulation is the accepted beta limitation.
+
+### Build flavors (same app, two distributions)
+* **Private admin APK** (yours, never public): first account is the administrator (PIN); developer tools visible to admins; full account management.
+* **Public user APK** (Render site + GitHub Releases): first account is a plain user — no PIN step, no admin abilities compiled in reach; users unlock Pro per account via license keys and freely manage (add/switch/delete, never the last profile) their own profiles.
+* Both share one applicationId and debug-channel signature in beta, so installs interchange without data loss. Production store releases re-sign properly (one clean reinstall then).
 
 ### Upgrade triggers (free → Pro, never blocking)
 * **Capacity:** friendly banner at 80% and 100% of the 10,000-file Free cap with a one-tap upgrade path; search keeps working over everything indexed.

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/app_index.dart';
 import '../services/account_store.dart';
 import '../services/billing_links.dart';
+import '../app_flavor.dart';
 import '../services/clip_joint.dart';
 import '../services/consent_store.dart';
 import '../services/debug_seed.dart';
@@ -50,6 +51,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<AccountProfile> _profiles = const [];
   String? _activeId;
   String _activeName = '';
+  String _proUntil = '';
+
+  static String _formatDate(int ms) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
 
   /// PIN prompt controller lives as long as this State: disposing it the
   /// moment a dialog pops crashes the route's exit transition
@@ -104,7 +115,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppIndex.ensure().then((app) async {
       final pro = await ProTierStore.isPro();
       app.search.gate.isPro = pro;
-      if (mounted) setState(() => _isPro = pro);
+      final until = pro ? await ProTierStore.expiryMs() : null;
+      if (!mounted) return;
+      setState(() {
+        _isPro = pro;
+        _proUntil =
+            until == null ? '' : 'Pro until ${_formatDate(until)}.';
+      });
     }).catchError((_) {});
     if (!mounted) return;
     setState(() {
@@ -577,8 +594,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// Admin-only removal (normal users never see the entry).
+  /// Account removal. Private builds gate the entry to admins; public
+  /// builds let anyone delete normal profiles (or themselves) — never
+  /// the last profile, and the last-admin guard lives in AccountStore.
   Future<void> _removeAccountDialog() async {
+    final deletable = [
+      for (final p in _profiles)
+        if (_profiles.length > 1 &&
+            (kPublicBuild ? (!p.isAdmin || p.id == _activeId) : true))
+          p,
+    ];
+    if (deletable.isEmpty) {
+      await _showBenchDialog(
+        'Cannot remove',
+        'At least one profile must remain.',
+      );
+      return;
+    }
     final target = await showDialog<AccountProfile>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -587,14 +619,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final p in _profiles)
-                if (p.id != _activeId)
-                  ListTile(
-                    leading: const Icon(Icons.person_outline),
-                    title: Text(p.name),
-                    subtitle: Text(p.isAdmin ? 'Administrator' : 'User'),
-                    onTap: () => Navigator.of(ctx).pop(p),
-                  ),
+              for (final p in deletable)
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text(p.name),
+                  subtitle: Text(p.isAdmin ? 'Administrator' : 'User'),
+                  onTap: () => Navigator.of(ctx).pop(p),
+                ),
             ],
           ),
         ),
@@ -819,8 +850,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _sectionHeader('Pro & subscription'),
           // Instant tier flip is a debug tool: normal users unlock Pro
-          // through Paystack + license key (rows below).
-          if (_isAdmin)
+          // through Paystack + license key (rows below). Never in public
+          // builds (no admin abilities there at all).
+          if (_isAdmin && !kPublicBuild)
             SwitchListTile(
               title: const Text('Pro tier (debug)'),
               subtitle: Text(
@@ -1032,11 +1064,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
               final app = await AppIndex.ensure();
               await LicenseStore.save(key);
-              await app.search.gate.setTier(true);
+              await ProTierStore.activate(outcome.validUntilMs);
+              app.search.gate.isPro = await ProTierStore.isPro();
               await app.db.logAudit('license_activated', '');
               if (!mounted) return;
-              setState(() => _isPro = true);
-              await _showBenchDialog('Pro unlocked', outcome.message);
+              setState(() => _isPro = app.search.gate.isPro);
+              final until = await ProTierStore.expiryMs();
+              if (!mounted) return;
+              await _showBenchDialog(
+                'Pro unlocked',
+                until == null
+                    ? outcome.message
+                    : '${outcome.message}\nPro until ${_formatDate(until)}.',
+              );
             },
           ),
           ListTile(
@@ -1066,7 +1106,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
               await _showBenchDialog(
                 'Manage subscription',
-                'Pro tier: ${app.search.gate.isPro ? 'active' : 'not active'}.\n'
+                'Pro tier: ${app.search.gate.isPro ? 'active' : 'not active'}.'
+                '${_proUntil.isEmpty ? '' : '\n$_proUntil'}\n'
                 '${BillingLinks.supportLine}',
               );
             },
@@ -1087,33 +1128,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.switch_account_outlined),
             onTap: () => _switchAccountDialog(),
           ),
-          if (_isAdmin)
-            ListTile(
-              leading: const Icon(Icons.person_add_outlined),
-              title: const Text('Add account'),
-              subtitle: const Text(
-                'New profiles are normal users unless you grant admin',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final added = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => const AccountSetupScreen(
-                      adminEntry: true,
-                    ),
-                  ),
-                );
-                if (added == true) _refreshAccounts();
-              },
+          // Any user can add profiles (always normal users in public
+          // builds); deleting is admin-gated on private builds, self-or-
+          // normal on public ones (never the last profile).
+          ListTile(
+            leading: const Icon(Icons.person_add_outlined),
+            title: const Text('Add account'),
+            subtitle: const Text(
+              'Multiple profiles per phone; Pro unlocks per account',
             ),
-          if (_isAdmin && _profiles.length > 1)
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final added = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => AccountSetupScreen(
+                    adminEntry: _isAdmin && !kPublicBuild,
+                  ),
+                ),
+              );
+              if (added == true) _refreshAccounts();
+            },
+          ),
+          if (_isAdmin || kPublicBuild)
             ListTile(
               leading: const Icon(
                 Icons.person_remove_outlined,
                 color: Colors.red,
               ),
               title: const Text('Remove account'),
-              subtitle: const Text('Admins only'),
+              subtitle: const Text(
+                kPublicBuild
+                    ? 'Delete any profile except the last one'
+                    : 'Admins only',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _removeAccountDialog(),
             ),
@@ -1168,7 +1215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
-          if (_isAdmin) ...[
+          if (_isAdmin && !kPublicBuild) ...[
             _sectionHeader('Developer tools'),
             _devTools(),
           ],

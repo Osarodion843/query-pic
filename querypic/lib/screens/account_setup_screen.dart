@@ -5,6 +5,7 @@ import '../services/account_store.dart';
 import '../services/app_index.dart';
 import '../services/license_store.dart';
 import '../services/pro_gate.dart';
+import '../app_flavor.dart';
 import 'welcome_screen.dart';
 
 /// Account creation. First run: creates the device ADMIN (name + PIN —
@@ -34,7 +35,8 @@ class _AccountSetupScreenState extends State<AccountSetupScreen> {
   bool _busy = false;
   String? _error;
 
-  bool get _needsPin => widget.firstRun || _makeAdmin;
+  bool get _needsPin =>
+      !kPublicBuild && (widget.firstRun || _makeAdmin);
 
   @override
   void dispose() {
@@ -79,8 +81,11 @@ class _AccountSetupScreenState extends State<AccountSetupScreen> {
       }
       final profile = await AccountStore.create(
         name: _name.text,
-        isAdmin: widget.firstRun || _makeAdmin,
+        // Public builds never create admins (no PIN step at all);
+        // private builds make the first profile the administrator.
+        isAdmin: !kPublicBuild && (widget.firstRun || _makeAdmin),
         pin: _needsPin ? _pin.text : null,
+        allowFirstAdmin: !kPublicBuild,
       );
       // Migrate a pre-account global unlock onto the first profile.
       if (widget.firstRun) {
@@ -133,10 +138,15 @@ class _AccountSetupScreenState extends State<AccountSetupScreen> {
             children: [
               Text(
                 widget.firstRun
-                    ? 'The first account on this phone is the administrator — '
-                        'it guards the developer tools with a PIN. Accounts '
-                        'live only on this device. Your existing library, '
-                        'folders and Pro unlock carry over untouched.'
+                    ? kPublicBuild
+                        ? 'Create your personal profile. Accounts live '
+                            'only on this device, and each one unlocks '
+                            'Pro with its own license key.'
+                        : 'The first account on this phone is the '
+                            'administrator — it guards the developer '
+                            'tools with a PIN. Accounts live only on '
+                            'this device. Your existing library, '
+                            'folders and Pro unlock carry over untouched.'
                     : widget.adminEntry
                         ? 'New profiles are normal users. Toggle below to '
                             'grant admin (requires the admin PIN).'
@@ -152,7 +162,7 @@ class _AccountSetupScreenState extends State<AccountSetupScreen> {
                   border: OutlineInputBorder(),
                 ),
               ),
-              if (widget.adminEntry && !widget.firstRun) ...[
+              if (widget.adminEntry && !widget.firstRun && !kPublicBuild) ...[
                 const SizedBox(height: 12),
                 SwitchListTile(
                   title: const Text('Administrator'),

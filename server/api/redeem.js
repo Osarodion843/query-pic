@@ -19,6 +19,13 @@ import { keyOf, normalizeKey, KEY_RE } from "../lib/keys.js";
 
 const redis = Redis.fromEnv();
 
+// Subscription windows by plan (monthly/yearly; anything else = 30d).
+// The app enforces expiry off the returned validUntil (clock-based, fully
+// offline after activation).
+const PERIOD_DAYS = { monthly: 30, yearly: 365 };
+const periodDaysFor = (plan) =>
+  PERIOD_DAYS[String(plan ?? "").toLowerCase()] ?? 30;
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -43,14 +50,26 @@ export default async function handler(req, res) {
   }
   if (record.used === "1") {
     if (record.usedBy === holder) {
-      return res.status(200).json({ ok: true, recovered: true });
+      return res.status(200).json({
+        ok: true,
+        recovered: true,
+        plan: record.plan ?? "pro",
+        validUntil: Number(record.validUntil ?? 0),
+      });
     }
     return res.status(410).json({ ok: false, error: "used" });
   }
+  const validUntil =
+    Date.now() + periodDaysFor(record.plan) * 24 * 3600 * 1000;
   await redis.hset(keyOf(key), {
     used: "1",
     usedBy: holder,
     usedAt: new Date().toISOString(),
+    validUntil: String(validUntil),
   });
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({
+    ok: true,
+    plan: record.plan ?? "pro",
+    validUntil,
+  });
 }

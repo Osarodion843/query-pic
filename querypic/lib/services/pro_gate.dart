@@ -74,8 +74,14 @@ class ProGate {
 /// Persisted tier flag (SharedPreferences, same pattern as consent_store).
 /// Scoped per account: each profile unlocks Pro with its own license key.
 /// Pre-account installs fall back to the legacy global key.
+/// Pro is TIME-BOXED: monthly = 30d, yearly = 365d from server activation
+/// (`validUntil` burn timestamp). The check is clock-based so the app
+/// stays fully offline after activation (device-clock manipulation is the
+/// accepted beta limitation, disclosed in code).
 class ProTierStore {
   static const keyPro = 'querypic_is_pro';
+  static const keyUntil = 'querypic_pro_until';
+  static const fallbackDays = 30;
 
   static Future<String?> _accountSuffix() async {
     try {
@@ -88,21 +94,52 @@ class ProTierStore {
 
   static Future<bool> isPro() async {
     final prefs = await SharedPreferences.getInstance();
-    final suffix = await _accountSuffix();
-    if (suffix != null) {
-      return prefs.getBool('$keyPro$suffix') ?? false;
+    final suffix = await _accountSuffix() ?? '';
+    if (!(prefs.getBool('$keyPro$suffix') ?? false)) return false;
+    var until = prefs.getInt('$keyUntil$suffix');
+    if (until == null) {
+      // Migration: pre-expiry installs (flag but no timestamp) get one
+      // 30-day window from now, then fall under normal expiry.
+      until = DateTime.now().millisecondsSinceEpoch +
+          fallbackDays * 24 * 3600 * 1000;
+      await prefs.setInt('$keyUntil$suffix', until);
     }
-    return prefs.getBool(keyPro) ?? false;
+    return DateTime.now().millisecondsSinceEpoch < until;
+  }
+
+  /// Expiry timestamp (ms) or null when not Pro. Powers "Pro until <date>".
+  static Future<int?> expiryMs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final suffix = await _accountSuffix() ?? '';
+    if (!(prefs.getBool('$keyPro$suffix') ?? false)) return null;
+    return prefs.getInt('$keyUntil$suffix');
+  }
+
+  /// Activate with a server-issued expiry. Missing/zero expiry (old
+  /// servers, debug) falls back to a 30-day window, never forever.
+  static Future<void> activate([int? validUntilMs]) async {
+    final prefs = await SharedPreferences.getInstance();
+    final suffix = await _accountSuffix() ?? '';
+    final until = (validUntilMs != null && validUntilMs > 0)
+        ? validUntilMs
+        : DateTime.now().millisecondsSinceEpoch +
+            fallbackDays * 24 * 3600 * 1000;
+    await prefs.setBool('$keyPro$suffix', true);
+    await prefs.setInt('$keyUntil$suffix', until);
   }
 
   static Future<void> setPro(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    final suffix = await _accountSuffix();
-    if (suffix != null) {
-      await prefs.setBool('$keyPro$suffix', value);
-    } else {
-      await prefs.setBool(keyPro, value);
+    if (value) {
+      // Debug instant-subscribe: generous but still time-boxed (365d),
+      // never permanent — expiry is a product rule, not a debug detail.
+      await activate(
+        DateTime.now().millisecondsSinceEpoch + 365 * 24 * 3600 * 1000,
+      );
+      return;
     }
+    final prefs = await SharedPreferences.getInstance();
+    final suffix = await _accountSuffix() ?? '';
+    await prefs.setBool('$keyPro$suffix', false);
   }
 }
 

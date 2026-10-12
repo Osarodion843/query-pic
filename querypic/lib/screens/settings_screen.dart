@@ -1056,7 +1056,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // then one backend call that burns the key (or dev bypass
               // when no backend is configured). Afterwards Pro is local
               // and fully offline.
-              final outcome = await LicenseStore.redeem(key);
+              final outcome = await LicenseStore.redeemAudited(
+                key,
+                onVerdict: (v) => AppIndex.ensure().then(
+                  (app) => app.db.logAudit('license_redeem', v),
+                ),
+              );
               if (!mounted) return;
               if (!outcome.ok) {
                 await _showBenchDialog('Key rejected', outcome.message);

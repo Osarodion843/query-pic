@@ -36,14 +36,37 @@ class LicenseStore {
   static Future<({bool ok, String message, int? validUntilMs})> redeem(
     String key, {
     String? baseUrl,
+  }) {
+    return _redeem(key, baseUrl: baseUrl, note: null);
+  }
+
+  /// Same as [redeem], plus an optional sink receiving the raw server
+  /// verdict (`fresh` / `recovered` / `used` / `unknown` / `error-…`).
+  /// The caller logs it to the local audit trail (Settings → Privacy
+  /// audit) so every activation attempt leaves inspectable evidence —
+  /// no more guessing what the server said.
+  static Future<({bool ok, String message, int? validUntilMs})> redeemAudited(
+    String key, {
+    String? baseUrl,
+    void Function(String verdict)? onVerdict,
+  }) {
+    return _redeem(key, baseUrl: baseUrl, note: onVerdict);
+  }
+
+  static Future<({bool ok, String message, int? validUntilMs})> _redeem(
+    String key, {
+    String? baseUrl,
+    void Function(String verdict)? note,
   }) async {
     final clean = key.trim().toUpperCase();
     if (!validateFormat(clean)) {
+      note?.call('local-format');
       return (ok: false, message: 'Expected format QP-PRO-XXXX-XXXX.', validUntilMs: null);
     }
     final base = (baseUrl ?? BackendKeys.licenseApiBase).trim();
     if (base.isEmpty) {
       // Dev-only bypass: no backend configured (debug builds).
+      note?.call('local-dev');
       return (
         ok: true,
         message: 'Accepted (offline dev mode).',
@@ -77,12 +100,14 @@ class LicenseStore {
       body = await response.transform(utf8.decoder).join();
       client.close();
     } on TimeoutException {
+      note?.call('error-timeout');
       return (
         ok: false,
         message: 'Verification timed out — check connection and retry.',
         validUntilMs: null,
       );
     } catch (_) {
+      note?.call('error-network');
       return (
         ok: false,
         message: 'Could not reach the verification server — '
@@ -92,17 +117,22 @@ class LicenseStore {
     }
     final status = response.statusCode;
     int? validUntil;
+    String verdict = 'error-$status';
     try {
       final decoded = json.decode(body);
       if (decoded is Map) {
         final v = decoded['validUntil'];
         if (v is num) validUntil = v.toInt();
+        if (decoded['recovered'] == true) verdict = 'recovered';
       }
     } catch (_) {}
     if (status == 200) {
+      if (verdict.startsWith('error')) verdict = 'fresh';
+      note?.call(verdict);
       return (ok: true, message: 'Pro unlocked.', validUntilMs: validUntil);
     }
     if (status == 404) {
+      note?.call('unknown');
       return (
         ok: false,
         message: 'Unknown key — check it letter by letter and retry.',
@@ -110,6 +140,7 @@ class LicenseStore {
       );
     }
     if (status == 410 || body.contains('"used"')) {
+      note?.call('used');
       return (
         ok: false,
         message: 'This key is already used on another device. '
@@ -117,6 +148,7 @@ class LicenseStore {
         validUntilMs: null,
       );
     }
+    note?.call('error-$status');
     return (
       ok: false,
       message: 'Verification failed (code $status) — try again later.',

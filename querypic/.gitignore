@@ -44,5 +44,8 @@ sandbox/models/*.onnx
 sandbox/models/*.onnx.data
 sandbox/models/*.pt
 sandbox/models/*.pth
+# Debug-only media (adb-pushed test clips, not build inputs).
+sandbox/models/*.mp4
+sandbox/models/*.wav
 # Local device index (test data, regenerates on launch).
 sandbox/db/

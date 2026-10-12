@@ -75,6 +75,34 @@ void main() {
       expect(out.validUntilMs, 1893456000000);
     });
 
+    test('audited redeem reports fresh/used/unknown verdicts', () async {
+      String? verdict;
+      await LicenseStore.redeemAudited(
+        'QP-PRO-GOOD-KEY1',
+        baseUrl: base,
+        onVerdict: (v) => verdict = v,
+      );
+      expect(verdict, 'fresh');
+      await LicenseStore.redeemAudited(
+        'QP-PRO-USED-KEY1',
+        baseUrl: base,
+        onVerdict: (v) => verdict = v,
+      );
+      expect(verdict, 'used');
+      await LicenseStore.redeemAudited(
+        'QP-PRO-NOPE-NOPE',
+        baseUrl: base,
+        onVerdict: (v) => verdict = v,
+      );
+      expect(verdict, 'unknown');
+      await LicenseStore.redeemAudited(
+        'nope',
+        baseUrl: base,
+        onVerdict: (v) => verdict = v,
+      );
+      expect(verdict, 'local-format');
+    });
+
     test('redeem binds device AND account (single-use scope)', () async {
       bodies.clear();
       await LicenseStore.redeem('QP-PRO-GOOD-KEY1', baseUrl: base);

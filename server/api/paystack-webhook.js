@@ -93,7 +93,17 @@ export default async function handler(req, res) {
   // Store raw minor units (exact); format only for display.
   const amountMinor = data.amount ?? 0;
   const currency = data.currency ?? "";
-  const plan = data.metadata?.plan ?? "pro";
+  // Plan resolution: explicit page metadata wins; otherwise fall back to
+  // the known price points (Payment Pages don't always forward metadata).
+  // Unknown amounts stay "pro" (30d) rather than guessing wrong.
+  const planRaw = String(data.metadata?.plan ?? "").toLowerCase();
+  const plan = ["monthly", "yearly"].includes(planRaw)
+    ? planRaw
+    : amountMinor === 3000000
+      ? "yearly"
+      : amountMinor === 300000
+        ? "monthly"
+        : "pro";
   const amountDisplay = `${(amountMinor / 100).toLocaleString("en-NG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

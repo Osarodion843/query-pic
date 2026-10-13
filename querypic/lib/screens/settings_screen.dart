@@ -1058,9 +1058,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // and fully offline.
               final outcome = await LicenseStore.redeemAudited(
                 key,
-                onVerdict: (v) => AppIndex.ensure().then(
-                  (app) => app.db.logAudit('license_redeem', v),
-                ),
+                onVerdict: (v) {
+                  final clean = key.trim().toUpperCase();
+                  final suffix = clean.length >= 4
+                      ? clean.substring(clean.length - 4)
+                      : clean;
+                  // Suffix identifies WHICH key burned (local log only):
+                  // repeated "fresh" for one suffix proves the burn never
+                  // persisted; different suffixes prove different keys.
+                  unawaited(AppIndex.ensure().then(
+                    (app) => app.db.logAudit('license_redeem', '$v:$suffix'),
+                  ),);
+                },
               );
               if (!mounted) return;
               if (!outcome.ok) {

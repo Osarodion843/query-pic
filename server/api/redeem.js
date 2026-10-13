@@ -48,8 +48,14 @@ export default async function handler(req, res) {
   if (!record || Object.keys(record).length === 0) {
     return res.status(404).json({ ok: false, error: "unknown" });
   }
-  if (record.used === "1") {
-    if (record.usedBy === holder) {
+  // Tolerant comparison: Upstash REST may hand back numbers, not strings.
+  // A strict `=== "1"` that silently misses would burn every key forever —
+  // exactly the failure this guards.
+  const used = String(record.used ?? "0") === "1";
+  const tag = `key=…${key.slice(-4)} holder=${String(holder).slice(0, 8)}…`;
+  if (used) {
+    if (String(record.usedBy ?? "") === holder) {
+      console.log(`redeem recovered ${tag}`);
       return res.status(200).json({
         ok: true,
         recovered: true,
@@ -57,6 +63,7 @@ export default async function handler(req, res) {
         validUntil: Number(record.validUntil ?? 0),
       });
     }
+    console.log(`redeem rejected (used elsewhere) ${tag}`);
     return res.status(410).json({ ok: false, error: "used" });
   }
   const validUntil =
@@ -67,6 +74,7 @@ export default async function handler(req, res) {
     usedAt: new Date().toISOString(),
     validUntil: String(validUntil),
   });
+  console.log(`redeem fresh burn ${tag}`);
   return res.status(200).json({
     ok: true,
     plan: record.plan ?? "pro",

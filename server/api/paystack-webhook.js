@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       for (const oldKey of prior) {
         const rec = await redis.hgetall(keyOf(oldKey));
         if (!rec || Object.keys(rec).length === 0) continue;
-        if (rec.used === "1") continue;
+        if (String(rec.used ?? "0") === "1") continue;
         if (Number(rec.amountMinor ?? -1) !== amountMinor) continue;
         const ageMs = Date.now() - Date.parse(rec.createdAt ?? 0);
         if (Number.isFinite(ageMs) && ageMs < 30 * 60 * 1000) {

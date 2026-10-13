@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -27,6 +25,7 @@ import '../services/stt_indexer.dart';
 import '../services/tflite_stt.dart';
 import 'folder_picker_screen.dart';
 import 'account_setup_screen.dart';
+import 'backup_restore.dart';
 import 'landing_screen.dart';
 import 'paywall_sheet.dart';
 
@@ -717,56 +716,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Password-protected backup export (share sheet → Drive/chat/email).
   /// No server involved; lose the password and the file is scrap.
+  /// Mismatched/empty passwords are refused INSIDE the dialog with a
+  /// visible error — never a silent no-op.
   Future<void> _backupDialog() async {
     final pw1 = TextEditingController();
     final pw2 = TextEditingController();
-    final ok = await showDialog<bool>(
+    String? error;
+    final password = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Back up accounts'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'One encrypted file with every profile, setting and '
-              'unlock (never media or the index — those rebuild). '
-              'Remember this password: it cannot be recovered.',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          return AlertDialog(
+            title: const Text('Back up accounts'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'One encrypted file with every profile, setting and '
+                  'unlock (never media or the index — those rebuild). '
+                  'Remember this password: it cannot be recovered.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: pw1,
+                  decoration: const InputDecoration(
+                    labelText: 'Backup password',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: pw2,
+                  decoration: const InputDecoration(
+                    labelText: 'Repeat password',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: pw1,
-              decoration: const InputDecoration(
-                labelText: 'Backup password',
-                border: OutlineInputBorder(),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: pw2,
-              decoration: const InputDecoration(
-                labelText: 'Repeat password',
-                border: OutlineInputBorder(),
+              FilledButton(
+                onPressed: () {
+                  if (pw1.text.isEmpty) {
+                    setDialog(() => error = 'Enter a password first.');
+                  } else if (pw1.text != pw2.text) {
+                    setDialog(
+                      () => error = 'Passwords do not match — try again.',
+                    );
+                  } else {
+                    Navigator.of(ctx).pop(pw1.text);
+                  }
+                },
+                child: const Text('Save'),
               ),
-              obscureText: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx,).pop(
-              pw1.text.isNotEmpty && pw1.text == pw2.text,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
-    final password = pw1.text;
     // Delayed dispose: the route exit transition may still reference the
     // controllers for a frame (see _pinController).
     unawaited(
@@ -775,7 +795,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         pw2.dispose();
       }),
     );
-    if (ok != true || !mounted) return;
+    if (password == null || password.isEmpty || !mounted) return;
     try {
       final bundle = await AccountBackup.exportBackup(password);
       await SharePlus.instance.share(
@@ -793,75 +813,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Restore from a backup file (password required).
+  /// Restore from a backup file (password required). Shared flow also
+  /// used by the first-run landing page.
   Future<void> _restoreDialog() async {
-    List<PlatformFile> picked = const [];
-    try {
-      picked = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['qpbackup'],
-      );
-    } catch (_) {
-      picked = const [];
-    }
-    if (picked.isEmpty || !mounted) return;
-    Uint8List? bytes;
-    try {
-      bytes = await picked.first.readAsBytes();
-    } catch (_) {
-      bytes = null;
-    }
-    if (bytes == null || !mounted) return;
-    final pw = TextEditingController();
-    final password = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Restore backup'),
-        content: TextField(
-          controller: pw,
-          decoration: const InputDecoration(
-            labelText: 'Backup password',
-            border: OutlineInputBorder(),
-          ),
-          obscureText: true,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(pw.text),
-            child: const Text('Restore'),
-          ),
-        ],
-      ),
-    );
-    final pwText = password ?? '';
-    unawaited(
-      Future.delayed(const Duration(milliseconds: 300))
-          .then((_) => pw.dispose()),
-    );
-    if (password == null || !mounted) return;
-    try {
-      final result = await AccountBackup.importBackup(
-        Uint8List.fromList(bytes),
-        pwText,
-      );
+    if (await runBackupRestore(context)) {
       await _refreshAccounts();
-      if (!mounted) return;
-      await _showBenchDialog(
-        'Restore done',
-        '${result.profiles} profile(s), ${result.keys} settings restored. '
-        'Your media re-indexes from the restored folders.',
-      );
-    } catch (_) {
-      if (!mounted) return;
-      await _showBenchDialog(
-        'Restore failed',
-        'Wrong password or a damaged backup file.',
-      );
     }
   }
 

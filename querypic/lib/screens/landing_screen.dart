@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import 'account_setup_screen.dart';
+import 'backup_restore.dart';
+import 'welcome_screen.dart';
 
 /// Marketing landing page: the first thing a fresh install shows.
 /// Showcases what QueryPic does; every feature CTA routes to account
@@ -117,6 +119,24 @@ class LandingScreen extends StatelessWidget {
                   'Get started',
                   style: TextStyle(fontSize: 16),
                 ),
+              ),
+              const SizedBox(height: 4),
+              // Fresh installs and post-reset restarts land here with no
+              // accounts: restoring a backup replaces creating one, and
+              // continues into onboarding (consent + folders still apply,
+              // since a wipe clears those too).
+              TextButton(
+                onPressed: () async {
+                  if (await runBackupRestore(context) && context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const WelcomeScreen(),
+                      ),
+                      (_) => false,
+                    );
+                  }
+                },
+                child: const Text('Restore from backup instead'),
               ),
               const SizedBox(height: 16),
             ],

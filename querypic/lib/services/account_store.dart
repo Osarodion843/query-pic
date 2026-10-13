@@ -188,6 +188,60 @@ class AccountStore {
 
   /// Delete a profile (admin only — enforced by callers showing the UI).
   /// Refuses to delete the last admin while other profiles exist.
+  /// Soft delete: the profile lands in trash for [trashDays] and can be
+  /// restored with its id intact (so per-account Pro/license keys,
+  /// which are keyed by profile id, keep working after restore).
+  static const trashDays = 30;
+  static const keyTrash = 'querypic_trash';
+
+  static Future<List<({AccountProfile profile, int deletedMs})>>
+      trash() async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(keyTrash);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final list = json.decode(raw) as List;
+      final out = <({AccountProfile profile, int deletedMs})>[];
+      for (final e in list) {
+        if (e is! Map<String, Object?>) continue;
+        final p = AccountProfile.fromJson(
+          (e['profile'] as Map?)?.cast<String, Object?>() ?? {},
+        );
+        if (p == null) continue;
+        out.add((
+          profile: p,
+          deletedMs: (e['deletedMs'] as num?)?.toInt() ?? 0,
+        ),);
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> _saveTrash(
+    List<({AccountProfile profile, int deletedMs})> trashed,
+  ) async {
+    final prefs = await _prefs;
+    await prefs.setString(
+      keyTrash,
+      json.encode([
+        for (final t in trashed)
+          {'profile': t.profile.toJson(), 'deletedMs': t.deletedMs},
+      ]),
+    );
+  }
+
+  /// Drop trashed profiles older than [trashDays]. Runs on every trash
+  /// read path (cheap) so the bin cannot grow forever.
+  static Future<void> purgeTrash() async {
+    final cutoff =
+        DateTime.now().millisecondsSinceEpoch - trashDays * 24 * 3600 * 1000;
+    final kept =
+        (await trash()).where((t) => t.deletedMs >= cutoff).toList();
+    await _saveTrash(kept);
+  }
+
   static Future<bool> delete(String id) async {
     final all = await profiles();
     final target =
@@ -199,6 +253,16 @@ class AccountStore {
         !rest.any((p) => p.isAdmin)) {
       return false;
     }
+    // Soft delete: profile goes to trash (restorable 30d, id intact so
+    // per-account Pro/license keys survive a restore). Purge expired
+    // trash in the same pass.
+    await purgeTrash();
+    final trashed = await trash();
+    trashed.add((
+      profile: target.first,
+      deletedMs: DateTime.now().millisecondsSinceEpoch,
+    ),);
+    await _saveTrash(trashed);
     await _saveAll(rest);
     final prefs = await _prefs;
     if (prefs.getString(keyActive) == id) {
@@ -208,6 +272,26 @@ class AccountStore {
         await prefs.setString(keyActive, rest.first.id);
       }
     }
+    return true;
+  }
+
+  /// Restore a trashed profile by id. Anyone may restore (switching to an
+  /// admin profile still demands the PIN), so a mistaken delete is never
+  /// a lockout. Returns false when absent or expired.
+  static Future<bool> restore(String id) async {
+    await purgeTrash();
+    final trashed = await trash();
+    final hit = trashed.where((t) => t.profile.id == id).toList();
+    if (hit.isEmpty) return false;
+    final all = await profiles();
+    if (all.any((p) => p.id == id)) {
+      // Already back (double restore): drop the trash copy.
+      await _saveTrash(trashed.where((t) => t.profile.id != id).toList());
+      return true;
+    }
+    all.add(hit.first.profile);
+    await _saveAll(all);
+    await _saveTrash(trashed.where((t) => t.profile.id != id).toList());
     return true;
   }
 }

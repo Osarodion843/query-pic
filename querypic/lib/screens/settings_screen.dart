@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/account_backup.dart';
 import '../services/app_index.dart';
 import '../services/account_store.dart';
 import '../services/billing_links.dart';
@@ -643,11 +647,222 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _showBenchDialog(
       ok ? 'Removed' : 'Cannot remove',
       ok
-          ? '${target.name} removed.'
+          ? '${target.name} removed. Undo within 30 days under '
+              'Accounts → Recently deleted.'
           : 'The last administrator cannot be removed while other '
               'accounts exist.',
     );
     await _refreshAccounts();
+  }
+
+  /// Recently deleted profiles (30-day bin). Restore keeps the profile
+  /// id, so per-account Pro and license keys survive the round trip.
+  /// Restoring an admin never bypasses its PIN (switching still asks).
+  Future<void> _trashDialog() async {
+    await AccountStore.purgeTrash();
+    if (!mounted) return;
+    final trashed = await AccountStore.trash();
+    if (!mounted) return;
+    if (trashed.isEmpty) {
+      await _showBenchDialog(
+        'Recently deleted',
+        'Nothing here — the bin holds deleted profiles for 30 days.',
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recently deleted'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final t in trashed)
+                ListTile(
+                  leading: Icon(
+                    t.profile.isAdmin
+                        ? Icons.admin_panel_settings_outlined
+                        : Icons.person_outline,
+                  ),
+                  title: Text(t.profile.name),
+                  subtitle: Text(
+                    '${t.profile.isAdmin ? 'Administrator' : 'User'} · '
+                    'deleted ${DateTime.fromMillisecondsSinceEpoch(t.deletedMs).day}'
+                    '/${DateTime.fromMillisecondsSinceEpoch(t.deletedMs).month}',
+                  ),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      await AccountStore.restore(t.profile.id);
+                      if (!ctx.mounted) return;
+                      Navigator.of(ctx).pop();
+                      await _refreshAccounts();
+                    },
+                    child: const Text('Restore'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+    await _refreshAccounts();
+  }
+
+  /// Password-protected backup export (share sheet → Drive/chat/email).
+  /// No server involved; lose the password and the file is scrap.
+  Future<void> _backupDialog() async {
+    final pw1 = TextEditingController();
+    final pw2 = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Back up accounts'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'One encrypted file with every profile, setting and '
+              'unlock (never media or the index — those rebuild). '
+              'Remember this password: it cannot be recovered.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pw1,
+              decoration: const InputDecoration(
+                labelText: 'Backup password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pw2,
+              decoration: const InputDecoration(
+                labelText: 'Repeat password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx,).pop(
+              pw1.text.isNotEmpty && pw1.text == pw2.text,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    final password = pw1.text;
+    // Delayed dispose: the route exit transition may still reference the
+    // controllers for a frame (see _pinController).
+    unawaited(
+      Future.delayed(const Duration(milliseconds: 300)).then((_) {
+        pw1.dispose();
+        pw2.dispose();
+      }),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final bundle = await AccountBackup.exportBackup(password);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile.fromData(bundle.bytes, name: bundle.fileName)],
+          subject: 'QueryPic account backup',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await _showBenchDialog(
+        'Backup failed',
+        'Could not create the backup file on this device.',
+      );
+    }
+  }
+
+  /// Restore from a backup file (password required).
+  Future<void> _restoreDialog() async {
+    List<PlatformFile> picked = const [];
+    try {
+      picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['qpbackup'],
+      );
+    } catch (_) {
+      picked = const [];
+    }
+    if (picked.isEmpty || !mounted) return;
+    Uint8List? bytes;
+    try {
+      bytes = await picked.first.readAsBytes();
+    } catch (_) {
+      bytes = null;
+    }
+    if (bytes == null || !mounted) return;
+    final pw = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore backup'),
+        content: TextField(
+          controller: pw,
+          decoration: const InputDecoration(
+            labelText: 'Backup password',
+            border: OutlineInputBorder(),
+          ),
+          obscureText: true,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(pw.text),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    final pwText = password ?? '';
+    unawaited(
+      Future.delayed(const Duration(milliseconds: 300))
+          .then((_) => pw.dispose()),
+    );
+    if (password == null || !mounted) return;
+    try {
+      final result = await AccountBackup.importBackup(
+        Uint8List.fromList(bytes),
+        pwText,
+      );
+      await _refreshAccounts();
+      if (!mounted) return;
+      await _showBenchDialog(
+        'Restore done',
+        '${result.profiles} profile(s), ${result.keys} settings restored. '
+        'Your media re-indexes from the restored folders.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await _showBenchDialog(
+        'Restore failed',
+        'Wrong password or a damaged backup file.',
+      );
+    }
   }
 
   /// Deliberate escape hatch (forgotten admin PIN included): wipes
@@ -1191,6 +1406,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _resetEverythingDialog(),
+          ),
+          ListTile(
+            leading: const Icon(Icons.backup_outlined),
+            title: const Text('Back up accounts'),
+            subtitle: const Text(
+              'Encrypted file for a new phone (password-protected)',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _backupDialog(),
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore_outlined),
+            title: const Text('Restore backup'),
+            subtitle: const Text('Bring back accounts from a backup file'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _restoreDialog(),
+          ),
+          FutureBuilder<int>(
+            future:
+                AccountStore.trash().then((t) => t.length).catchError((_) => 0),
+            builder: (context, snap) {
+              final n = snap.data ?? 0;
+              if (n == 0) return const SizedBox.shrink();
+              return ListTile(
+                leading: const Icon(Icons.history_outlined),
+                title: Text('Recently deleted ($n)'),
+                subtitle: const Text(
+                  'Restore profiles for up to 30 days',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _trashDialog(),
+              );
+            },
           ),
           _sectionHeader('Privacy'),
           SwitchListTile(
